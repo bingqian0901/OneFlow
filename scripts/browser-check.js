@@ -1,0 +1,32 @@
+async (page) => {
+  const assert = (condition, text) => { if (!condition) throw new Error(text); };
+  const snapshot = async () => console.log((await page.locator('main').ariaSnapshot()).slice(0, 1800));
+  const click = async (name) => { await page.getByRole('button', {name, exact:true}).click(); await snapshot(); };
+  const data = () => page.evaluate(() => JSON.parse(localStorage.getItem('oneflow-demo-v1')));
+  await snapshot();
+  if(await page.getByRole('button',{name:'开始规划',exact:true}).isVisible()) await click('开始规划');
+  await page.getByRole('button',{name:'选择这部',exact:true}).first().click(); await snapshot();
+  await click('加入清单科幻主题宇航员模型');
+  await click('加入清单宇宙星空氛围灯');
+  await click('加入本次购物清单');
+  await click('下一步');
+  await click('确认开启观影模式');
+  let s = await data(); assert(!s.devices.find(d=>d.id==='tv').properties.content,'TV changed before confirmation');
+  await click('确认执行');
+  await page.getByRole('heading',{name:'科幻电影之夜准备完成！',exact:true}).waitFor();
+  s=await data(); assert(s.devices.find(d=>d.id==='tv').properties.content==='星际穿越','Film mismatch');
+  assert(s.devices.find(d=>d.id==='ac').properties.temperature===26,'Temperature mismatch');
+  assert(s.devices.find(d=>d.id==='light').properties.brightness===30,'Light mismatch');
+  assert(s.tasks[0].ordered===false,'Unexpected automatic order');
+  await click('查看购物清单');
+  await click('模拟确认下单');
+  assert(await page.getByText('演示订单，不产生真实交易。不会扣款，也不会配送。').isVisible(),'Missing order disclaimer');
+  s=await data();assert(!s.tasks[0].ordered,'Order created before second confirmation');
+  await click('确认创建演示订单');
+  s=await data();assert(s.tasks[0].ordered,'Confirmed order not created');
+  await click('关闭');
+  await page.getByRole('button',{name:'开始播放',exact:true}).click();
+  s=await data();assert(s.devices.find(d=>d.id==='tv').properties.mode==='正在播放','Playback not synchronized');
+  await page.screenshot({path:'output/playwright/movie-completed.png',fullPage:true});
+  return 'PASS movie: selection, quantity, confirmation gate, devices, separate order confirmation, playback';
+}
